@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drive Setup Guide · TG Control</title>
+<meta name="description" content="ABB drive parameter settings, fault codes, cross-reference and panel simulator – TG Control">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.webmanifest?v=2">
+<link rel="icon" type="image/png" sizes="48x48" href="img/favicon-48.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png?v=2">
+<meta name="apple-mobile-web-app-title" content="Drive Setup">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Roboto+Condensed:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="css/app.css?v=2026.11.09.3">
+</head>
+<body>
+<div class="top">
+  <div class="wrap bar">
+    <div class="brand"><img class="logo" src="img/tg-control.png" alt="TG Control" width="92" height="48"><div class="bt"><b>Drive Setup Guide</b><small>ABB drive parameters · TG Control</small></div></div>
+    <div class="search"><input id="qs" type="search" enterkeyhint="search" autocomplete="off" aria-label="Search parameter or fault code"><div class="qs-res" id="qsres" hidden></div></div>
+    <div class="model"><label for="model">รุ่น</label><select id="model"></select></div>
+  </div>
+  <div class="wrap"><div class="tabs" id="tabs" role="tablist"></div></div>
+</div>
+<main class="wrap" id="main"><div class="loaderr loading muted">กำลังโหลด…</div></main>
+<nav class="bnav" id="bnav" aria-label="Main menu"></nav>
+<footer class="foot wrap">Drive Setup Guide โดย TG Control · ข้อมูลอ้างอิงจากคู่มือ ABB (เลขเอกสารและหน้าระบุในแต่ละพารามิเตอร์) · ABB, ACS และ ACH เป็นเครื่องหมายการค้าของ ABB · เว็บนี้ไม่ใช่เว็บไซต์ทางการของ ABB · <button type="button" class="linkbtn" onclick="lockApp()">ล็อก / ออกจากเครื่องนี้</button></footer>
+<div id="drawer-root"></div>
+<script>
+// one version for every file: change it on each release so phones fetch the new files (sw.js keeps the same number)
+const APP_VERSION = "2026.11.09.3";
+const DSG = {};
+// a script error while the page is still loading shows on screen instead of an endless "loading"
+window.addEventListener("error", e => {
+  const m = document.getElementById("main");
+  if (!m || !m.querySelector(".loading")) return;
+  m.innerHTML = '<div class="loaderr"><b>เปิดหน้าไม่สำเร็จ</b><span class="muted"></span><button class="btn" type="button" onclick="location.reload()">ลองใหม่</button></div>';
+  m.querySelector(".muted").textContent = `${e.message} (${(e.filename || "").split("/").pop().split("?")[0]}:${e.lineno})`;
+});
+/* ---- password lock: the data files are encrypted (tools/lock_data.ps1); the password turns into the key with
+   PBKDF2-SHA256, each file is checked with HMAC-SHA256 and opened with AES-256-CBC, then un-gzipped ---- */
+const KEYSTORE = "dsg-key";
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const b64s = u => btoa(String.fromCharCode(...u));
+async function keysFrom(raw) {
+  const enc = await crypto.subtle.importKey("raw", raw.slice(0, 32), "AES-CBC", false, ["decrypt"]);
+  const mac = await crypto.subtle.importKey("raw", raw.slice(32, 64), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+  return { enc, mac };
+}
+async function passwordKeys(pw, lock) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
+  const raw = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", salt: b64(lock.salt), iterations: lock.iter, hash: "SHA-256" }, base, 512));
+  return { raw, keys: await keysFrom(raw) };
+}
+const keyOk = async (keys, lock) => crypto.subtle.verify("HMAC", keys.mac, b64(lock.check), new TextEncoder().encode("tg-drive-setup"));
+async function openFile(name, keys) {
+  const r = await fetch(`data/${name}.txt?v=${APP_VERSION}`); if (!r.ok) throw new Error(name + " " + r.status);
+  const all = b64((await r.text()).trim()), iv = all.slice(0, 16), mac = all.slice(16, 48), ct = all.slice(48);
+  const body = new Uint8Array(iv.length + ct.length); body.set(iv); body.set(ct, 16);
+  if (!(await crypto.subtle.verify("HMAC", keys.mac, mac, body))) throw new Error("ไฟล์ข้อมูลไม่ตรงกับรหัส – ลองรีเฟรช");
+  const gz = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, keys.enc, ct);
+  return new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream("gzip"))).json();
+}
+function lockScreen(lock, msg) {
+  return new Promise(done => {
+    document.body.classList.add("locked");
+    const m = document.getElementById("main");
+    m.innerHTML = `<form class="card lockcard" id="lockf" autocomplete="on">
+      <img src="img/icon-192.png?v=2" alt="" width="72" height="72"><h2>Drive Setup Guide</h2><p class="muted">สำหรับทีม TG Control – ใส่รหัสผ่านเพื่อใช้งาน</p>
+      <input type="text" name="username" value="Drive Setup Guide" autocomplete="username" hidden>
+      <input class="input" id="lockpw" type="password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
+      <label class="sw"><input type="checkbox" id="lockkeep" checked> <span>จำไว้ในเครื่องนี้ (ใช้ออฟไลน์ได้)</span></label>
+      <div class="lockerr" id="lockerr">${msg || ""}</div>
+      <button class="btn pri" type="submit" id="lockgo">เข้าใช้งาน</button></form>`;
+    const f = document.getElementById("lockf"), pw = document.getElementById("lockpw"), err = document.getElementById("lockerr"), go = document.getElementById("lockgo");
+    pw.focus();
+    f.addEventListener("submit", async e => {
+      e.preventDefault(); go.disabled = true; go.textContent = "กำลังตรวจรหัส…"; err.textContent = "";
+      try {
+        const { raw, keys } = await passwordKeys(pw.value, lock);
+        if (!(await keyOk(keys, lock))) { err.textContent = "รหัสผ่านไม่ถูกต้อง"; pw.select(); return; }
+        try { if (document.getElementById("lockkeep").checked) localStorage.setItem(KEYSTORE, JSON.stringify({ salt: lock.salt, k: b64s(raw) })); } catch (x) {}
+        m.innerHTML = '<div class="loaderr loading muted">กำลังโหลด…</div>'; document.body.classList.remove("locked"); done(keys);
+      } catch (x) { err.textContent = "เปิดไม่ได้: " + x.message; }
+      finally { go.disabled = false; go.textContent = "เข้าใช้งาน"; }
+    });
+  });
+}
+async function unlockKeys() {
+  const lock = await (await fetch(`data/lock.json?v=${APP_VERSION}`)).json();
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEYSTORE) || "null");
+    if (saved && saved.salt === lock.salt) { const keys = await keysFrom(b64(saved.k)); if (await keyOk(keys, lock)) return keys; }
+    if (saved) localStorage.removeItem(KEYSTORE);      // the password was changed: ask again
+    return lockScreen(lock, saved ? "รหัสผ่านถูกเปลี่ยนแล้ว – ใส่รหัสใหม่" : "");
+  } catch (e) { return lockScreen(lock, ""); }
+}
+function lockApp() { try { localStorage.removeItem(KEYSTORE); } catch (e) {} location.reload(); }
+(async () => {
+  const JS = ["core", "settings", "faults", "params", "xref", "simulator", "panel-ip", "main"].map(f => `js/${f}.js?v=${APP_VERSION}`);
+  // scripts download while the password is checked; they run (in this order) once the data is open
+  for (const u of JS) { const l = document.createElement("link"); l.rel = "preload"; l.as = "script"; l.href = u; document.head.appendChild(l); }
+  const load = u => new Promise((ok, no) => {
+    const s = document.createElement("script"), t = setTimeout(() => no(new Error(`${u.split("?")[0]} timeout`)), 30000);
+    s.async = false; s.src = u; s.onload = () => { clearTimeout(t); ok(); }; s.onerror = () => { clearTimeout(t); no(new Error(u.split("?")[0])); };
+    document.body.appendChild(s);
+  });
+  try {
+    if (!window.crypto || !crypto.subtle || !window.DecompressionStream) throw new Error("เบราว์เซอร์นี้เก่าเกินไป – อัปเดต Chrome / Safari แล้วลองใหม่");
+    const keys = await unlockKeys();
+    const [params, recipes, extra, sim] = await Promise.all(["params", "recipes", "extra", "sim"].map(n => openFile(n, keys)));
+    Object.assign(DSG, { params, recipes, extra, sim });
+    await Promise.all(JS.map(load));
+  } catch (e) {
+    console.error(e);
+    document.getElementById("main").innerHTML = '<div class="loaderr"><b>โหลดข้อมูลไม่สำเร็จ</b><span class="muted">ตรวจอินเทอร์เน็ตแล้วลองใหม่</span><span class="muted" id="loadwhy"></span><button class="btn" type="button" onclick="location.reload()">ลองใหม่</button></div>';
+    document.getElementById("loadwhy").textContent = e.message;
+  }
+})();
+// offline cache on the live site (local testing skips it unless ?sw is in the address)
+const devHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+if ("serviceWorker" in navigator && location.protocol !== "file:" && (!devHost || location.search.includes("sw"))) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
