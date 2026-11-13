@@ -195,9 +195,12 @@ function renderSim() {
   if (!simTimer) simTimer = setInterval(() => { simTick(0.1); if (S.tab === "sim" && S.model === SM && document.getElementById("lcd")) drawSim(); }, 100);
 }
 function buildIO() {
-  $("#simio").innerHTML = `<section class="card iob"><div class="hd"><h2>อินพุตดิจิทัล (DI)</h2><span class="muted" style="font-size:12.5px">DI1…DI${CFG().di} · แตะเพื่อสลับ</span></div><div class="bd"><div id="dis"></div></div></section>
+  $("#simio").innerHTML = `<section class="card iob"><div class="hd"><h2>อินพุตดิจิทัล (DI)</h2><span class="muted" style="font-size:12.5px">DI1…DI${CFG().di} · แตะ 2 ครั้งเพื่อสลับ</span></div><div class="bd"><div id="dis"></div></div></section>
     <section class="card iob"><div class="hd"><h2>อินพุตอนาล็อก (AI)</h2><span class="muted" style="font-size:12.5px">AI1 ขั้ว 2 · AI2 ขั้ว 5</span></div><div class="bd">
-      ${[0, 1].map(i => `<div class="aiw"><div class="aitop"><b>AI${i + 1}</b><span id="aiv${i}"></span><input class="input aiin" id="ain${i}" inputmode="decimal" aria-label="AI${i + 1} value"></div><input type="range" id="ai${i}" min="0" max="20" step="0.1" value="${SIM.ai[i]}"><div class="aisc" id="ais${i}"></div></div>`).join("")}</div></section>
+      ${[0, 1].map(i => `<div class="aiw"><div class="aitop"><b>AI${i + 1}</b><span id="aiv${i}"></span><input class="input aiin" id="ain${i}" inputmode="decimal" aria-label="AI${i + 1} value"></div><input type="range" id="ai${i}" min="0" max="20" step="0.1" value="${SIM.ai[i]}">
+        <div class="aibtns"><button class="btn aib" type="button" data-aistep="${i}:-1" aria-label="ลด AI${i + 1}">−</button><button class="btn aib" type="button" data-aistep="${i}:1" aria-label="เพิ่ม AI${i + 1}">+</button></div>
+        <div class="aipre">${[0, 25, 50, 75, 100].map(p => `<button class="chip" type="button" data-aipct="${i}:${p}">${p}%</button>`).join("")}</div>
+        <div class="aisc" id="ais${i}"></div></div>`).join("")}</div></section>
     <section class="card iob"><div class="hd"><h2>เอาต์พุต</h2><span class="muted" style="font-size:12.5px">รีเลย์ ${CFG().ro.length} · อนาล็อก ${CFG().ao.length}</span></div><div class="bd" id="ros"></div></section>
     <section class="card iob"><div class="hd"><h2>STO / ทดสอบ Fault</h2></div><div class="bd" style="display:grid;gap:10px">
       <label class="sw"><input type="checkbox" id="sto" ${SIM.sto ? "checked" : ""}> <span>วงจร STO ปิด – ปกติ (X4 ขั้ว 34–38)</span></label>
@@ -233,8 +236,8 @@ function drawSim() {
   const tb = $("#typebox"), s = top_(), tm = s.t === "edit" ? simMeta(s.p) : null; tb.hidden = !(tm && (tm.t === "num" || tm.t === "time") && !(SIM.fault && !SIM.faultHidden));
   if (!tb.hidden) { $("#typev").placeholder = `${s.p === "REF" ? "Reference" : s.p} – ${tm.t === "time" ? tm.fmt : tm.unit || "value"}`; $("#typev").inputMode = tm.t === "time" ? "text" : "decimal"; }
   setText($("#refu"), c.u);
-  if ($("#dis")) setHTML($("#dis"), SIM.di.map((v, i) => { const u = diUsers(i); return `<button type="button" class="dibtn ${v ? "on" : ""}" data-di="${i}"><span class="dot"></span><b>DI${i + 1}</b><em>${v ? "1" : "0"}</em><span class="du">${esc(u.join(" · ") || "Not used")}</span></button>`; }).join(""));
-  if ($("#ai0")) [0, 1].forEach(i => { const u = aiUnit(i), sl = $("#ai" + i); sl.max = u === "V" ? 10 : 20; setText($("#aiv" + i), SIM.ai[i].toFixed(2) + " " + u); $("#ain" + i).placeholder = "พิมพ์ค่า " + u; setText($("#ais" + i), `ค่าหลังสเกล ${aiScaled(i).toFixed(2)}  (${i ? "12.29…12.30" : "12.19…12.20"})`); });
+  if ($("#dis")) setHTML($("#dis"), SIM.di.map((v, i) => { const u = diUsers(i), arm = diArmed(i); return `<button type="button" class="dibtn ${v ? "on" : ""}${arm ? " arm" : ""}" data-di="${i}"><span class="dot"></span><b>DI${i + 1}</b><em>${v ? "1" : "0"}</em><span class="du">${arm ? "แตะอีกครั้งเพื่อสลับ" : esc(u.join(" · ") || "Not used")}</span></button>`; }).join(""));
+  if ($("#ai0")) [0, 1].forEach(i => { const u = aiUnit(i), sl = $("#ai" + i); sl.max = u === "V" ? 10 : 20; if (document.activeElement !== sl && +sl.value !== SIM.ai[i]) sl.value = SIM.ai[i]; setText($("#aiv" + i), SIM.ai[i].toFixed(2) + " " + u); $("#ain" + i).placeholder = "พิมพ์ค่า " + u; setText($("#ais" + i), `ค่าหลังสเกล ${aiScaled(i).toFixed(2)}  (${i ? "12.29…12.30" : "12.19…12.20"})`); });
   if ($("#ros")) setHTML($("#ros"), CFG().ro.map((n, i) => { const on = roState(V(n)); return `<div class="ro ${on ? "on" : ""}"><span class="lamp"></span><b>RO${i + 1}</b><span>${n} ${esc(fmtV(n))}</span><em>${on ? "Energized" : "–"}</em></div>`; }).join("") +
     CFG().ao.map((n, i) => `<div class="ro"><span class="lamp ao"></span><b>AO${i + 1}</b><span>${n} ${esc(fmtV(n))}</span><em>${aoValue(i)}</em></div>`).join(""));
   setHTML($("#sst"), `<div><b>${SIM.fault ? "Faulted " + SIM.fault : SIM.jogRun ? "Jogging " + SIM.jog : SIM.run ? "Running" : SIM.sleep ? "PID sleep" : "Stopped"}</b> · ${CFG().hoa ? locText() : SIM.local ? "Local" : "Remote"}${SIM.local ? "" : " " + (srcB(V("19.11")) ? "EXT2" : "EXT1")} · ${SIM.f.toFixed(2)} Hz</div>
@@ -249,7 +252,6 @@ let holdT = null;
 document.addEventListener("pointerdown", e => {
   const b = e.target.closest("[data-k]");
   if (b) { e.preventDefault(); holdN = 0; press(b.dataset.k); drawSim(); clearInterval(holdT); if (["up", "down"].includes(b.dataset.k)) { const k = b.dataset.k; let n = 0; holdT = setInterval(() => { if (++n > 4) { holdN++; press(k); drawSim(); } }, 90); } return; }
-  const d = e.target.closest("[data-di]"); if (d) { e.preventDefault(); const i = +d.dataset.di; SIM.di[i] = !SIM.di[i]; simLog(`DI${i + 1} = ${SIM.di[i] ? 1 : 0}`); drawSim(); }
 });
 ["pointerup", "pointercancel", "blur"].forEach(ev => (ev === "blur" ? window : document).addEventListener(ev, () => { clearInterval(holdT); holdN = 0; }));
 document.addEventListener("click", e => { const g = e.target.closest("[data-simgo]"); if (g) { closeDrawer(); if (!SIM_MODELS.includes(S.model)) { S.model = "ACS580"; store.set("model", S.model); } if (S.model !== SM) useSimModel(S.model); gotoParam(g.dataset.simgo); setTab("sim"); } });
@@ -258,4 +260,40 @@ document.addEventListener("keydown", e => {
   const map = IPMODE() ? { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Enter: "ok", Escape: "back", Backspace: "back" }
                        : { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Enter: "rsoft", Escape: "lsoft" };
   if (map[e.key]) { e.preventDefault(); press(map[e.key]); drawSim(); }
+});
+
+// DI switches change on two taps in a row: a finger sliding over them while scrolling gives no click at all,
+// and one stray tap only marks the switch (blue) for 1.5 s
+let diArm = { i: -1, t: 0 };
+const diArmed = i => diArm.i === i && Date.now() - diArm.t < 1500;
+document.addEventListener("click", e => {
+  const d = e.target.closest("[data-di]"); if (!d) return;
+  const i = +d.dataset.di;
+  if (diArmed(i)) { diArm = { i: -1, t: 0 }; SIM.di[i] = !SIM.di[i]; simLog(`DI${i + 1} = ${SIM.di[i] ? 1 : 0}`); }
+  else diArm = { i, t: Date.now() };
+  drawSim();
+});
+
+// AI on phones: − / + (0.5 V or 1 mA) and 0…100 % of the AI range set in the drive (12.17…12.18 / 12.27…12.28).
+// Like the DI switches, a finger sliding past while scrolling changes nothing: one step on a clean tap,
+// repeat only after holding still for 0.45 s.
+const aiMax = i => aiUnit(i) === "V" ? 10 : 20;
+function aiSet(i, v) { SIM.ai[i] = Math.round(Math.max(0, Math.min(aiMax(i), v)) * 100) / 100; drawSim(); }
+const aiStep = (i, dir) => aiSet(i, SIM.ai[i] + dir * (aiUnit(i) === "V" ? 0.5 : 1));
+let aiHold = null;
+document.addEventListener("pointerdown", e => {
+  const b = e.target.closest("[data-aistep]"); if (!b) return;
+  const [i, dir] = b.dataset.aistep.split(":").map(Number), x = e.clientX, y = e.clientY;
+  const h = aiHold = { x, y, held: false, rep: null };
+  h.wait = setTimeout(() => { h.held = true; h.rep = setInterval(() => aiStep(i, dir), 90); }, 450);
+});
+document.addEventListener("pointermove", e => { if (aiHold && Math.hypot(e.clientX - aiHold.x, e.clientY - aiHold.y) > 8) { clearTimeout(aiHold.wait); clearInterval(aiHold.rep); aiHold.moved = true; } });
+const aiStop = () => { if (aiHold) { clearTimeout(aiHold.wait); clearInterval(aiHold.rep); } };
+["pointerup", "pointercancel"].forEach(ev => document.addEventListener(ev, aiStop));
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-aistep]");
+  if (b) { const was = aiHold; aiHold = null; if (was && (was.held || was.moved)) return; const [i, dir] = b.dataset.aistep.split(":").map(Number); aiStep(i, dir); return; }
+  const p = e.target.closest("[data-aipct]"); if (!p) return;
+  const [i, pct] = p.dataset.aipct.split(":").map(Number), [mn, mx] = i ? ["12.27", "12.28"] : ["12.17", "12.18"];
+  aiSet(i, V(mn) + (V(mx) - V(mn)) * pct / 100);
 });
