@@ -1,37 +1,7 @@
 "use strict";
 /* ---------- ACS580 assistant panel simulator ---------- */
-// panels that can be simulated; I/O and enable signals follow each firmware manual
-const SIM_MODELS = ["ACS580", "ACH580", "ACS180"];
-const SIMCFG = {
-  ACS580: { di: 6, ro: ["10.24", "10.27", "10.30"], ao: ["13.12", "13.22"], runEn: ["20.12"], startEn: ["20.19"], body: "dark", macro: "ABB standard", panel: "ACS-AP-x" },
-  ACH580: { di: 6, ro: ["10.24", "10.27", "10.30"], ao: ["13.12", "13.22"], runEn: ["20.40"], startEn: ["20.41", "20.42"], body: "white", macro: "HVAC default", panel: "ACH-AP-H", hoa: true },
-  ACS180: { di: 5, ro: ["10.24"], ao: ["13.12"], runEn: ["20.12"], startEn: ["20.19"], body: "dark", macro: "ABB standard", panel: "ACS-AP-x" } };
 let SM = SIM_MODELS.includes(S.model) ? S.model : "ACS580";
 const CFG = () => SIMCFG[SM];
-const MACRO_DIFF = (() => {
-  // ACS580 firmware manual, "Parameter default values for different macros"
-  const cols = { 1: 0, 2: 1, 3: 2, 7: 3, 11: 4, 12: 5, 13: 6, 14: 7, 15: 8, 16: 9, 17: 10, 28: 11 };
-  const T = {
-    "10.24": [2, 2, 2, 2, 2, 2, 2, 2, 2, 7, 2, 2], "10.27": [7, 7, 7, 7, 7, 7, 7, 7, 7, 15, 7, 7], "10.30": [15, 15, 15, 15, 15, 15, 15, 15, 15, 46, 15, 15],
-    "12.20": [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 1500, 1500], "13.12": [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1], "13.18": [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 1500, 1500],
-    "19.11": [0, 5, 4, 0, 0, 0, 0, 0, 0, 5, 0, 5], "20.01": [2, 2, 1, 1, 5, 3, 2, 1, 1, 1, 2, 2], "20.03": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-    "20.04": [3, 3, 0, 0, 3, 3, 3, 0, 0, 0, 3, 3], "20.05": [0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0], "20.06": [0, 2, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-    "20.08": [0, 7, 7, 0, 0, 0, 0, 0, 0, 7, 0, 2], "20.09": [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "20.12": [1, 5, 6, 6, 1, 7, 7, 6, 6, 3, 1, 1],
-    "22.11": [1, 1, 1, 16, 1, 1, 15, 16, 16, 1, 1, 1], "28.11": [1, 1, 1, 16, 1, 1, 15, 16, 16, 1, 1, 1],
-    "22.18": [0, 2, 16, 0, 0, 0, 0, 0, 0, 16, 0, 0], "28.15": [0, 2, 16, 0, 0, 0, 0, 0, 0, 16, 0, 0],
-    "22.21": [1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1], "28.21": [1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1],
-    "22.22": [4, 0, 4, 5, 5, 4, 6, 5, 5, 0, 4, 4], "28.22": [4, 0, 4, 5, 5, 4, 6, 5, 5, 0, 4, 4],
-    "22.23": [5, 0, 5, 0, 6, 5, 0, 0, 0, 0, 5, 5], "28.23": [5, 0, 5, 0, 6, 5, 0, 0, 0, 0, 5, 5],
-    "22.71": [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], "22.73": [0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0], "22.74": [0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0],
-    "23.11": [6, 0, 0, 0, 0, 6, 0, 0, 0, 0, 6, 6], "28.71": [6, 0, 0, 0, 0, 6, 0, 0, 0, 0, 6, 6],
-    "40.07": [0, 0, 2, 2, 0, 0, 0, 2, 2, 2, 0, 0], "40.16": [11, 11, 11, 11, 11, 11, 11, 11, 13, 11, 11, 11], "40.17": [0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0],
-    "40.19": [0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0, 0], "40.20": [0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 0],
-    "40.32": [1, 1, 1, 1, 1, 1, 1, 1, 1, 2.5, 1, 1], "40.33": [60, 60, 60, 60, 60, 60, 60, 60, 60, 3, 60, 60],
-    "76.21": [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0], "76.25": [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1], "76.27": [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1],
-    "99.04": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-  };
-  return code => { const c = cols[code]; if (c == null) return null; const o = {}; for (const k in T) o[k] = T[k][c]; return o; };
-})();
 const SIMALL = DSG.sim;
 let SIMROWS = SIMALL[SM], SROW = new Map(SIMROWS.map(r => [r[0], r]));
 const nameOf = n => (SROW.get(n) || pOf(SM, n) || [n, ""])[1];
@@ -59,7 +29,7 @@ function setV(n, v) {
 }
 function restoreDefaults() { for (const k in SIMV) delete SIMV[k]; SIM.panelRef = 0; SIM.macro = CFG().macro; simLog("96.06 Parameter restore: Restore defaults"); }
 function applyMacro(code) {
-  const diff = SM === "ACS580" ? MACRO_DIFF(code) : null; restoreDefaults();
+  const diff = macroValues(code); restoreDefaults();
   if (diff) for (const k in diff) if (SROW.has(k)) SIMV[k] = diff[k];
   const nm = (simMeta("96.04").opts.find(o => o[0] === code) || [0, ""])[1];
   SIM.macro = nm; SIMV["96.04"] = 0; simLog("96.04 Macro select: " + nm);
@@ -81,10 +51,12 @@ function fmtBits(m, v) {
 const isMod = n => n in SIMV && SIMV[n] !== simMeta(n).def;
 
 let holdN = 0;
-const SIM = { di: Array(SIMCFG[SM].di).fill(false), diPrev: Array(SIMCFG[SM].di).fill(false), ai: [0, 4], sto: true, local: false, panelRef: 0, panelRun: false, panelDir: 1, latch: false, latchDir: 1,
+const SIM = { di: diStart(SM), diPrev: Array(SIMCFG[SM].di).fill(false), ai: [0, 4], sto: true, local: false, panelRef: 0, panelRun: false, panelDir: 1, latch: false, latchDir: 1,
   f: 0, run: false, fault: null, warn: [], faultHidden: false, inhibit: [], pid: 0, pidI: 0, sleep: false, sleepT: 0, wakeT: 0, mpot: 0, log: [], macro: SIMCFG[SM].macro, hoa: "auto", home: 0, homeViews: [["01.06", "01.07", "01.10"], ["01.10", "01.14"]], pfcAux: 0, pfcT: 0 };
 function simLog(t) { SIM.log.unshift(new Date().toLocaleTimeString("en-GB") + "  " + t); SIM.log = SIM.log.slice(0, 40); }
-const DI = i => i < SIM.di.length && !!SIM.di[i];
+// DI5 shares its terminal: 11.21 DI5 configuration must be the digital input, else DI5 reads 0
+const diOff = i => i === 4 && SROW.has("11.21") && !/^Digital input/i.test(nameOfOpt("11.21"));
+const DI = i => i < SIM.di.length && !!SIM.di[i] && !diOff(i);
 // reference range from the active minimum/maximum (30.11/30.12 or 30.13/30.14)
 // why the reference cannot go below zero (reverse) on this drive's settings
 function revBlocked() { const c = chain(); return V("20.21") === 1 ? "Reverse blocked: 20.21 Direction = Forward" : V(c.mn) >= 0 ? `Reverse blocked: ${c.mn} ${nameOf(c.mn)} = ${V(c.mn)} ${c.u}` : ""; }
@@ -95,13 +67,24 @@ function useSimModel(m) {
   for (const k in SIMP) delete SIMP[k];
   for (const k in SIMV) delete SIMV[k];
   const n = CFG().di;
-  Object.assign(SIM, { di: Array(n).fill(false), diPrev: Array(n).fill(false), ai: [0, 4], sto: true, local: false, panelRef: 0, panelRun: false, panelDir: 1, f: 0, run: false,
+  Object.assign(SIM, { di: diStart(m), diPrev: Array(n).fill(false), ai: [0, 4], sto: true, local: false, panelRef: 0, panelRun: false, panelDir: 1, f: 0, run: false,
     fault: null, warn: [], inhibit: [], latch: false, pid: 0, pidI: 0, sleep: false, mpot: 0, log: [], macro: CFG().macro, hoa: "auto", pfcAux: 0, pfcT: 0 });
   resetHome(); STK = [{ t: "home" }];
   simLog(`${m} simulator – factory defaults (${CFG().macro})`);
 }
-const srcA = c => c === 1 ? true : (c >= 2 && c <= 7) ? DI(c - 2) : false;
-const srcB = c => c === 1 ? true : (c >= 3 && c <= 8) ? DI(c - 3) : false;
+// A source parameter (Ext1 in1, Run enable, External event, Ext1/Ext2 selection …) read by the NAME of its selection,
+// so each drive's own numbering works, and so do inverted inputs (-DI1 on the ACH580).
+// Selections that are not simulated (supervision, timed functions, fieldbus bits) count as 0.
+function src(n) {
+  const m = simMeta(n); if (!m || m.t !== "opt") return false;
+  const o = m.opts.find(o => o[0] === V(n)), nm = o ? o[1].trim() : "", inv = nm.startsWith("-"), k = diIndex(inv ? nm.slice(1) : nm);
+  if (k >= 0) { const on = DI(k); return inv ? !on : on; }
+  return /^(Selected|Always on|Inactive \(true\)|EXT2|On)$/i.test(nm);
+}
+// the DI number a source parameter points at (-1 when it is not a digital input)
+function srcDi(n) { const m = simMeta(n); if (!m || m.t !== "opt") return -1; const o = m.opts.find(o => o[0] === V(n)); return o ? diIndex(o[1].trim().replace(/^-/, "")) : -1; }
+// index of an input by its name on this drive ("DI3", "DIIL"), -1 when it is not one
+function diIndex(nm) { for (let i = 0; i < CFG().di; i++) if (diName(i) === nm) return i; return -1; }
 const aiUnit = i => (V(i ? "12.25" : "12.15") === 10 ? "mA" : "V");
 function aiScaled(i) {
   const [mn, mx, smn, smx] = i ? ["12.27", "12.28", "12.29", "12.30"] : ["12.17", "12.18", "12.19", "12.20"];
@@ -112,8 +95,10 @@ function aiScaled(i) {
 const aiPct = i => { const [mn, mx] = i ? ["12.27", "12.28"] : ["12.17", "12.18"]; return Math.max(0, Math.min(100, (SIM.ai[i] - V(mn)) / ((V(mx) - V(mn)) || 1) * 100)); };
 function chain() {
   const vec = V("99.04") === 0;
-  return vec ? { vec, r1: "22.11", r2: "22.18", cf: "22.21", s: ["22.22", "22.23", "22.24"], cv: "22.26", rs: "23.11", a1: "23.12", d1: "23.13", a2: "23.14", d2: "23.15", mn: "30.11", mx: "30.12", sc: "46.01", u: "rpm" }
-             : { vec, r1: "28.11", r2: "28.15", cf: "28.21", s: ["28.22", "28.23", "28.24"], cv: "28.26", rs: "28.71", a1: "28.72", d1: "28.73", a2: "28.74", d2: "28.75", mn: "30.13", mx: "30.14", sc: "46.02", u: "Hz" };
+  // Ext2 reference: 22.18 / 28.15 on the ACS580 family, 22.12 / 28.12 on the ACS880 (selected by 22.14 / 28.14 "Follow Ext1/Ext2")
+  const r2v = SROW.has("22.18") ? "22.18" : "22.12", r2f = SROW.has("28.15") ? "28.15" : "28.12";
+  return vec ? { vec, r1: "22.11", r2: r2v, cf: "22.21", s: ["22.22", "22.23", "22.24"], cv: "22.26", rs: "23.11", a1: "23.12", d1: "23.13", a2: "23.14", d2: "23.15", mn: "30.11", mx: "30.12", sc: "46.01", u: "rpm" }
+             : { vec, r1: "28.11", r2: r2f, cf: "28.21", s: ["28.22", "28.23", "28.24"], cv: "28.26", rs: "28.71", a1: "28.72", d1: "28.73", a2: "28.74", d2: "28.75", mn: "30.13", mx: "30.14", sc: "46.02", u: "Hz" };
 }
 const nomRpm = () => V("99.09") || 1500, nomHz = () => V("99.08") || 50;
 const toHz = (x, c) => c.vec ? x * nomHz() / nomRpm() : x;
@@ -122,18 +107,18 @@ function trip(code) { if (SIM.fault) return; SIM.fault = code; SIM.faultHidden =
 
 let refUsed = 0, cmdInfo = "", refInfo = "";
 function simTick(dt) {
-  const c = chain(), ext2 = srcB(V("19.11")), rise = SIM.di.map((v, i) => v && !SIM.diPrev[i]);
-  const fr = V("31.11"); if (fr >= 2 && fr <= 7 && rise[fr - 2] && SIM.fault) { simLog("Fault reset (31.11 DI" + (fr - 1) + ")"); SIM.fault = null; }
+  const c = chain(), ext2 = src("19.11"), rise = SIM.di.map((v, i) => v && !SIM.diPrev[i]);
+  const fr = srcDi("31.11"); if (fr >= 0 && rise[fr] && SIM.fault) { simLog("Fault reset (31.11 DI" + (fr + 1) + ")"); SIM.fault = null; }
   const warn = [];
-  if (!srcB(V("31.01"))) { if (V("31.02") === 1) warn.push("A981"); else trip("9081"); }
+  if (SROW.has("31.01") && !src("31.01")) { if (V("31.02") === 1) warn.push("A981"); else trip("9081"); }
   if (V("12.03") > 0) { const b = V("12.04"), lo = ((b & 1) && SIM.ai[0] < V("12.17") - 0.5) || ((b & 4) && SIM.ai[1] < V("12.27") - 0.5); if (lo) { if (V("12.03") === 1) trip("80A0"); else warn.push("A8A0"); } }
   if (!SIM.sto) { if (SIM.run) trip("5091"); else warn.push("A5A0"); }
-  const estopOk = srcB(V("21.05")); if (!estopOk) warn.push(V("21.04") === 1 ? "AFE1" : "AFE2");
+  const estopOk = !SROW.has("21.05") || src("21.05"); if (!estopOk) warn.push(V("21.04") === 1 ? "AFE1" : "AFE2");
   const local = SIM.local, mode = local ? 11 : (ext2 ? V("20.06") : V("20.01"));
-  const ins = (ext2 ? ["20.08", "20.09", "20.10"] : ["20.03", "20.04", "20.05"]).map(n => V(n));
+  const insP = ext2 ? ["20.08", "20.09", "20.10"] : ["20.03", "20.04", "20.05"];
   const edge = (ext2 ? V("20.07") : V("20.02")) === 0;
-  const i1 = srcA(ins[0]), i2 = srcA(ins[1]), i3 = srcA(ins[2]);
-  const r1 = ins[0] >= 2 && ins[0] <= 7 ? rise[ins[0] - 2] : false, r2 = ins[1] >= 2 && ins[1] <= 7 ? rise[ins[1] - 2] : false;
+  const i1 = src(insP[0]), i2 = src(insP[1]), i3 = src(insP[2]);
+  const d1 = srcDi(insP[0]), d2 = srcDi(insP[1]), r1 = d1 >= 0 ? rise[d1] : false, r2 = d2 >= 0 ? rise[d2] : false;
   const nm = (n, v) => { const m = simMeta(n), o = m && m.opts ? m.opts.find(o => o[0] === v) : null; return o ? o[1] : String(v); };
   let start = false, dir = 1;
   if (mode === 1 || mode === 2) { if (edge) { if (r1) SIM.latch = true; if (!i1) SIM.latch = false; start = SIM.latch; } else start = i1; if (mode === 2) dir = i2 ? -1 : 1; }
@@ -144,17 +129,17 @@ function simTick(dt) {
   if (local) { start = SIM.panelRun; dir = SIM.panelDir; }
   cmdInfo = local ? "Control panel (Local)" : `${ext2 ? "20.06 Ext2" : "20.01 Ext1"} commands = ${nm(ext2 ? "20.06" : "20.01", mode)}` + (mode === 12 || mode === 14 ? " (fieldbus not simulated)" : "");
   const dp = V("20.21"); if (dp === 1) dir = 1; if (dp === 2) dir = -1;
-  const has = n => SROW.has(n), runEn = local || CFG().runEn.every(n => !has(n) || srcA(V(n))), startEn = local || CFG().startEn.every(n => !has(n) || srcA(V(n)));
-  let ref = 0; const src = ext2 ? V(c.r2) : V(c.r1);
+  const has = n => SROW.has(n), runEn = local || CFG().runEn.every(n => !has(n) || src(n)), startEn = local || CFG().startEn.every(n => !has(n) || src(n));
+  let ref = 0; const rsrc = ext2 ? V(c.r2) : V(c.r1);
   if (local) { ref = SIM.panelRef; refInfo = "Control panel (Local)"; }
   else {
-    refInfo = `${ext2 ? c.r2 : c.r1} = ${nm(c.r1, src)}`;
-    if (src === 1) ref = aiScaled(0); else if (src === 2) ref = aiScaled(1);
-    else if (src === 18 || src === 19) ref = SIM.panelRef;
-    else if (src === 15) { const up = srcA(V("22.73")), dn = srcA(V("22.74")), span = (V("22.77") - V("22.76")) || 1, t = V("22.75") || 1;
+    refInfo = `${ext2 ? c.r2 : c.r1} = ${nm(c.r1, rsrc)}`;
+    if (rsrc === 1) ref = aiScaled(0); else if (rsrc === 2) ref = aiScaled(1);
+    else if (rsrc === 18 || rsrc === 19 || rsrc === 20 || rsrc === 21) ref = SIM.panelRef;
+    else if (rsrc === 15) { const up = src("22.73"), dn = src("22.74"), span = (V("22.77") - V("22.76")) || 1, t = V("22.75") || 1;
       if (V("22.71") > 0) { if (up && !dn) SIM.mpot += span / t * dt; if (dn && !up) SIM.mpot -= span / t * dt; SIM.mpot = Math.max(V("22.76"), Math.min(V("22.77"), SIM.mpot)); } ref = SIM.mpot; }
-    else if (src === 16) { ref = SIM.sleep ? 0 : SIM.pid; refInfo += ` (40.01 = ${SIM.pid.toFixed(2)})`; }
-    const cfw = V(c.cf), s = c.s.map(n => srcA(V(n)));
+    else if (rsrc === 16) { ref = SIM.sleep ? 0 : SIM.pid; refInfo += ` (40.01 = ${SIM.pid.toFixed(2)})`; }
+    const cfw = V(c.cf), s = c.s.map(n => src(n));
     const idx = (cfw & 1) ? (s[0] ? 1 : 0) + (s[1] ? 2 : 0) + (s[2] ? 4 : 0) : (s[0] ? 1 : s[1] ? 2 : s[2] ? 3 : 0);
     if (idx) { const b = c.cv.split("."); ref = V(b[0] + "." + String(+b[1] + idx - 1)); refInfo = `Constant ${c.vec ? "speed" : "frequency"} ${idx}`; }
   }
@@ -162,7 +147,7 @@ function simTick(dt) {
   if (pidOn && !local) {
     const fbS = V("40.08"), spS = V("40.16");
     const fb = fbS === 1 ? aiScaled(0) : fbS === 2 ? aiScaled(1) : fbS === 8 ? aiPct(0) : fbS === 9 ? aiPct(1) : 0;
-    const isel = (srcA(V("40.19")) ? 1 : 0) + (srcA(V("40.20")) ? 2 : 0);          // internal setpoint 0...3 = 40.24, 40.21, 40.22, 40.23
+    const isel = (src("40.19") ? 1 : 0) + (src("40.20") ? 2 : 0);          // internal setpoint 0...3 = 40.24, 40.21, 40.22, 40.23
     const sp = spS === 2 ? V(["40.24", "40.21", "40.22", "40.23"][isel]) : spS === 3 ? aiScaled(0) : spS === 4 ? aiScaled(1) : spS === 11 ? aiPct(0) : spS === 12 ? aiPct(1) : (spS === 13 || spS === 14) ? SIM.panelRef : 0;
     let e = sp - fb; if (V("40.31") === 1) e = -e;
     // control chain (manual "Process PID controller" diagram): deviation / 40.14 input scale -> PID -> x 40.15 output scale -> 40.36/40.37 limits = 40.01
@@ -176,7 +161,7 @@ function simTick(dt) {
     if (SIM.sleep) { const dev = V("40.31") === 1 ? fb - sp : sp - fb; SIM.wakeT = dev > V("40.47") ? SIM.wakeT + dt : 0; if (SIM.wakeT >= V("40.48")) { SIM.sleep = false; SIM.sleepT = 0; simLog("PID wake-up"); } }
   } else { SIM.pid = 0; SIM.pidI = 0; SIM.sleep = false; }
   // jogging: external control only; a start that is already running keeps priority
-  const jogEn = SROW.has("20.25") && !local && srcA(V("20.25")), j1 = jogEn && srcA(V("20.26")), j2 = jogEn && srcA(V("20.27"));
+  const jogEn = SROW.has("20.25") && !local && src("20.25"), j1 = jogEn && src("20.26"), j2 = jogEn && src("20.27");
   if (!start) SIM.needFresh = false;
   if (jogEn && start && !(SIM.run && !SIM.jog)) SIM.needFresh = true;
   if (SIM.needFresh) start = false;                       // start is ignored while jogging is enabled; a fresh start is needed after
@@ -191,7 +176,7 @@ function simTick(dt) {
   const inh = [];
   if (SIM.fault) inh.push("Fault active – reset required");
   if (!runEn) inh.push(`${nameOf(CFG().runEn[0])} missing (${CFG().runEn.join(", ")})`);
-  if (!startEn) inh.push(`${nameOf(CFG().startEn[0])} missing (${CFG().startEn.filter(n => SROW.has(n) && !srcA(V(n))).join(", ")})`);
+  if (!startEn) inh.push(`${nameOf(CFG().startEn[0])} missing (${CFG().startEn.filter(n => SROW.has(n) && !src(n)).join(", ")})`);
   if (!SIM.sto) inh.push("Safe torque off (STO)");
   if (!estopOk) inh.push("Emergency stop (21.05)");
   SIM.inhibit = inh; SIM.warn = warn;
@@ -201,7 +186,7 @@ function simTick(dt) {
   SIM.jogRun = want && jogOn;
   if (SIM.jogRun) SIM.jogStop = true; else if (start || Math.abs(SIM.f) < 1e-6) SIM.jogStop = false;
   SIM.run = want; SIM.startPending = start && !want;
-  const rs = V(c.rs), set2 = rs === 1 || (rs >= 2 && rs <= 7 && DI(rs - 2));
+  const set2 = V(c.rs) === 1 || (srcDi(c.rs) >= 0 && src(c.rs));
   const jr = SIM.jogStop && SROW.has("23.20");   // jogging and the stop after it use the jogging ramps
   const fsc = toHz(V(c.sc), c) || 50, acc = jr ? V("23.20") : V(set2 ? c.a2 : c.a1), dec = jr ? V("23.21") : V(set2 ? c.d2 : c.d1), target = SIM.run ? refHz : 0;
   const coast = !SIM.run && !(SIM.jogStop && !SIM.fault && SIM.sto) && (SIM.fault || !SIM.sto || (!runEn && (!SROW.has("20.11") || V("20.11") === 0)) || (!estopOk && V("21.04") === 1) || V("21.03") === 0);
@@ -212,7 +197,7 @@ function simTick(dt) {
   if (!pfcOn || !SIM.run) { if (SIM.pfcAux) simLog("PFC: auxiliary motors stopped"); SIM.pfcAux = 0; SIM.pfcT = 0; }
   else {
     const spd = c.vec ? Math.abs(SIM.f) * nomRpm() / nomHz() : Math.abs(SIM.f), k = SIM.pfcAux;
-    const startPt = V("76." + (30 + k)), stopPt = k ? V("76." + (40 + k)) : -1, free = n => !SROW.has("76.8" + n) || srcA(V("76.8" + n));
+    const startPt = V("76." + (30 + k)), stopPt = k ? V("76." + (40 + k)) : -1, free = n => !SROW.has("76.8" + n) || src("76.8" + n);
     if (k < auxMax && spd >= startPt - 0.05 && free(k + 2)) { SIM.pfcT = Math.max(0, SIM.pfcT) + dt; if (SIM.pfcT >= V("76.55")) { SIM.pfcAux++; SIM.pfcT = 0; simLog(`PFC: start auxiliary motor ${SIM.pfcAux} (PFC${SIM.pfcAux + 1}) – speed ≥ 76.${30 + k} Start point ${k + 1} = ${startPt} ${c.u} for 76.55`); } }
     else if (k > 0 && spd <= stopPt) { SIM.pfcT = Math.min(0, SIM.pfcT) - dt; if (-SIM.pfcT >= V("76.56")) { simLog(`PFC: stop auxiliary motor ${k} (PFC${k + 1}) – speed ≤ 76.${40 + k} Stop point ${k} = ${stopPt} ${c.u} for 76.56`); SIM.pfcAux--; SIM.pfcT = 0; } }
     else SIM.pfcT = 0;
@@ -265,7 +250,7 @@ function roState(code) {
     case 1: return true; case 2: return ready; case 4: return !SIM.fault && SIM.sto; case 5: case 6: case 7: return SIM.run;
     case 8: case 9: return atSp; case 10: return SIM.f < 0; case 11: return Math.abs(SIM.f) < 0.5;
     case 13: return SIM.warn.length > 0; case 14: return !!SIM.fault; case 15: return !SIM.fault; case 16: return !!SIM.fault || SIM.warn.length > 0;
-    case 23: return srcB(V("19.11")); case 24: return !SIM.local; case 45: return SIM.run;
+    case 23: return src("19.11"); case 24: return !SIM.local; case 45: return SIM.run;
     case 46: case 47: case 48: case 49: case 50: return SIM.pfcOn && SIM.run && SIM.pfcAux >= code - 45;
   }
   return false;
@@ -278,10 +263,9 @@ function aoValue(i) {
   return (V(omn) + Math.max(0, Math.min(1, r)) * (V(omx) - V(omn))).toFixed(2) + " " + (i ? "mA" : (V("13.15") === 2 ? "V" : "mA"));
 }
 function diUsers(i) {
-  const out = [], chk = (n, enc) => { const v = V(n); if ((enc === "A" && v === i + 2) || (enc === "B" && v === i + 3)) out.push(n + " " + nameOf(n)); };
-  ["20.03", "20.04", "20.05", "20.08", "20.09", "20.10", "20.25", "20.26", "20.27", ...CFG().runEn, ...CFG().startEn].filter(n => SROW.has(n)).forEach(n => chk(n, "A")); chk("19.11", "B");
-  const c = chain(); c.s.forEach(n => chk(n, "A")); chk(c.rs, "A");
-  ["31.01", "21.05"].filter(n => SROW.has(n)).forEach(n => chk(n, "B")); ["31.11", "22.73", "22.74"].filter(n => SROW.has(n)).forEach(n => chk(n, "A"));
+  const out = [], c = chain(), chk = n => { if (SROW.has(n) && srcDi(n) === i) out.push(n + " " + nameOf(n)); };
+  ["20.03", "20.04", "20.05", "20.08", "20.09", "20.10", "20.25", "20.26", "20.27", ...CFG().runEn, ...CFG().startEn, "19.11", ...c.s, c.rs,
+    "31.01", "21.05", "31.11", "22.73", "22.74", "40.19", "40.20"].forEach(chk);
   return out;
 }
 
@@ -360,17 +344,18 @@ function selectMain(x) {
     if (it.label === "Modified") pushParamList("Modified", () => Object.keys(SIMV).filter(isMod).sort());
     else STK.push({ t: "list", title: "Complete list", i: 0, items: () => GROUPS().map(([k, v]) => ({ label: k.padStart(2, "0") + " " + v, arrow: true, g: k })), onSel: g => pushParamList(g.label, pInGroup(g.g).map(p => p[0])) }); } });
   else if (x === "I/O") STK.push({ t: "list", title: "I/O", i: 0, items: () => [
-      ...SIM.di.map((v, i) => ({ label: `DI${i + 1}`, value: (v ? "1" : "0") + "  " + (diUsers(i)[0] || "").replace(/^\d+\.\d+ /, ""), io: i })),
+      ...SIM.di.map((v, i) => ({ label: diName(i), value: (v ? "1" : "0") + "  " + (diUsers(i)[0] || "").replace(/^\d+\.\d+ /, ""), io: i })),
       { label: "AI1", value: SIM.ai[0].toFixed(2) + " " + aiUnit(0), io: "ai" }, { label: "AI2", value: SIM.ai[1].toFixed(2) + " " + aiUnit(1), io: "ai" },
       ...CFG().ro.map((n, i) => ({ label: `RO${i + 1}`, value: (roState(V(n)) ? "1" : "0") + "  " + fmtV(n), p: n })),
+      ...(CFG().do || []).map((n, i) => ({ label: `DO${i + 1}`, value: (roState(V(n)) ? "1" : "0") + "  " + fmtV(n), p: n })),
       ...CFG().ao.map((n, i) => ({ label: `AO${i + 1}`, value: aoValue(i), p: n }))],
-    onSel: it => { if (it.p) openEdit(it.p); else if (typeof it.io === "number") STK.push({ t: "msg", title: "DI" + (it.io + 1), text: diUsers(it.io).join("\n") || "Not used" }); } });
+    onSel: it => { if (it.p) openEdit(it.p); else if (typeof it.io === "number") STK.push({ t: "msg", title: diName(it.io), text: diUsers(it.io).join("\n") || "Not used" }); } });
   else if (x === "Diagnostics") STK.push({ t: "list", title: "Diagnostics", i: 0, items: () => [
       { label: "Start, stop, reference summary", arrow: true }, { label: "Limit status", arrow: true }, { label: "Active faults", value: SIM.fault ? "1" : "0" }, { label: "Active warnings", value: String(SIM.warn.length) },
       { label: "Active inhibits", value: String(SIM.inhibit.length) }, { label: "Fault & event log", arrow: true }],
     onSel: it => {
       const c = chain(), txt = {
-        "Start, stop, reference summary": () => `Control location: ${SIM.local ? "Local" : "Remote, " + (srcB(V("19.11")) ? "EXT2" : "EXT1")}\nStart/stop: ${cmdInfo}\nReference: ${refInfo}\nRef used: ${refUsed.toFixed(2)} Hz`,
+        "Start, stop, reference summary": () => `Control location: ${SIM.local ? "Local" : "Remote, " + (src("19.11") ? "EXT2" : "EXT1")}\nStart/stop: ${cmdInfo}\nReference: ${refInfo}\nRef used: ${refUsed.toFixed(2)} Hz`,
         "Limit status": () => `Min ${V(c.mn)} ${c.u} (${c.mn})\nMax ${V(c.mx)} ${c.u} (${c.mx})`,
         "Active faults": () => SIM.fault ? `${SIM.fault} ${faultName(SIM.fault)}` : "No active faults",
         "Active warnings": () => SIM.warn.length ? SIM.warn.map(w => w + " " + faultName(w)).join("\n") : "No active warnings",
@@ -383,7 +368,7 @@ function selectMain(x) {
 }
 const HELP_HOA = "Hand: start from the panel (local), reference with Up/Down\nOff: stop (local)\nAuto: external control (I/O, fieldbus)\nOptions / Menu: softkeys";
 const HELP = { home: "Up/Down: change reference (Local)\nLeft/Right: Home view\nOptions / Menu: softkeys", menu: "Up/Down: select\nRight softkey: Select\nLeft softkey: Exit", list: "Up/Down: select\nRight softkey: Select / Edit\nLeft softkey: Back", edit: "Up/Down: change value\nLeft/Right: move cursor\nRight softkey: Save\nLeft softkey: Cancel" };
-const panelCtl = () => SIM.local || V(srcB(V("19.11")) ? "20.06" : "20.01") === 11;
+const panelCtl = () => SIM.local || V(src("19.11") ? "20.06" : "20.01") === 11;
 function key(k) {
   const s = top_();
   if (k === "help") { if (s.t === "help") STK.pop(); else STK.push({ t: "help", title: "Help", text: (s.t === "home" && CFG().hoa ? HELP_HOA : HELP[s.t]) || "" }); return; }
@@ -483,7 +468,7 @@ function saveNum(s, v) {
 let flash = "", flashT = 0;
 function flashMsg(t) { flash = t; flashT = Date.now(); }
 // in Remote the panel reference is used when the active Ext1/Ext2 reference is "Control panel (ref saved/copied)"
-function panelRefActive() { const c = chain(), src = srcB(V("19.11")) ? V(c.r2) : V(c.r1); return src === 18 || src === 19 || src === 20 || src === 21; }
+function panelRefActive() { const c = chain(), rs = src("19.11") ? V(c.r2) : V(c.r1); return rs === 18 || rs === 19 || rs === 20 || rs === 21; }
 function crumbs() {
   // integrated panel: no Menu key, OK opens the Main menu and Back opens Options
   const ip = IPMODE(), out = ip ? [] : ["Menu"];

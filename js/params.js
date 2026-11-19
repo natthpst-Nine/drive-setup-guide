@@ -11,7 +11,7 @@ function paramListHtml() {
 function renderParam() {
   const m = S.model, groups = Object.entries(D[m].groups).sort((a, b) => +a[0] - +b[0]);
   $("#main").innerHTML = `<section class="card"><div class="hd"><button class="btn sm" type="button" data-tab="set">‹ ตั้งค่าไดร์ฟ</button><h2>รายการพารามิเตอร์ – ${m}</h2><span class="muted" style="font-size:13px">${D[m].P.length} ตัว · ค่าโรงงานอยู่ทางขวา</span></div>
-    <div class="filters"><input class="input" id="pq" type="search" placeholder="เลขหรือชื่อ เช่น 22.11, acceleration" value="${esc(S.pq)}" aria-label="ค้นหาพารามิเตอร์">
+    ${docLine(m)}<div class="filters"><input class="input" id="pq" type="search" placeholder="เลขหรือชื่อ เช่น 22.11, acceleration" value="${esc(S.pq)}" aria-label="ค้นหาพารามิเตอร์">
       <select class="input" id="pgroup" style="flex:1 1 220px" aria-label="กลุ่ม"><option value="">ทุกกลุ่ม</option>${groups.map(([k, v]) => `<option value="${k}" ${S.pgroup === k ? "selected" : ""}>${k.padStart(2, "0")} ${esc(v)}</option>`).join("")}</select></div>
     <div class="list p" id="plist">${paramListHtml()}</div></section>`;
   const inp = $("#pq"); inp.addEventListener("input", () => { S.pq = inp.value; $("#plist").innerHTML = paramListHtml(); });

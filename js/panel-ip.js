@@ -43,7 +43,7 @@ function ipSub(id) {
     { label: "Active fault", value: SIM.fault ? "✕ " + SIM.fault : "✕ –", act: () => STK.push({ t: "msg", title: "Active fault", text: SIM.fault ? `${SIM.fault} ${faultName(SIM.fault)}` : "No active fault" }) },
     { label: "Fault history", value: "≡ " + SIM.log.filter(l => /Fault \w{4} /.test(l)).length, act: () => STK.push({ t: "msg", title: "Fault history", text: SIM.log.filter(l => /Fault \w{4} /.test(l)).join("\n") || "Empty" }) },
     { label: "Active warnings", value: "⚠ " + (SIM.warn[0] || "–"), act: () => STK.push({ t: "msg", title: "Active warnings", text: SIM.warn.map(w => w + " " + faultName(w)).join("\n") || "No active warnings" }) },
-    { label: "Connection status", value: "I/O", act: () => STK.push({ t: "msg", title: "Connection status", text: `DI1…DI${CFG().di}: ${SIM.di.map(x => x ? 1 : 0).join("")}\nAI1 ${SIM.ai[0].toFixed(2)} ${aiUnit(0)}  AI2 ${SIM.ai[1].toFixed(2)} ${aiUnit(1)}\n` + CFG().ro.map((n, i) => `RO${i + 1} ${roState(V(n)) ? 1 : 0}`).join("  ") + "\n" + CFG().ao.map((n, i) => `AO${i + 1} ${aoValue(i)}`).join("  ") + "\nFieldbus: not connected" }) }] };
+    { label: "Connection status", value: "I/O", act: () => STK.push({ t: "msg", title: "Connection status", text: `${diRange()}: ${SIM.di.map(x => x ? 1 : 0).join("")}\nAI1 ${SIM.ai[0].toFixed(2)} ${aiUnit(0)}  AI2 ${SIM.ai[1].toFixed(2)} ${aiUnit(1)}\n` + CFG().ro.map((n, i) => `RO${i + 1} ${roState(V(n)) ? 1 : 0}`).concat((CFG().do || []).map((n, i) => `DO${i + 1} ${roState(V(n)) ? 1 : 0}`)).join("  ") + "\n" + CFG().ao.map((n, i) => `AO${i + 1} ${aoValue(i)}`).join("  ") + "\nFieldbus: not connected" }) }] };
   return { title: "Parameters", items: () => [
     { label: "Complete parameter list", value: "All", act: () => STK.push({ t: "list", title: "Complete list", i: 0, items: () => GROUPS().map(([k, v]) => ({ label: k.padStart(2, "0") + " " + v, arrow: true, g: k })), onSel: g => pushParamList(g.label, pInGroup(g.g).map(p => p[0])) }) },
     { label: "Modified parameter list", value: "Δ " + Object.keys(SIMV).filter(isMod).length, act: () => pushParamList("Modified", () => Object.keys(SIMV).filter(isMod).sort()) },
@@ -195,15 +195,15 @@ function renderSim() {
   if (!simTimer) simTimer = setInterval(() => { simTick(0.1); if (S.tab === "sim" && S.model === SM && document.getElementById("lcd")) drawSim(); }, 100);
 }
 function buildIO() {
-  $("#simio").innerHTML = `<section class="card iob"><div class="hd"><h2>อินพุตดิจิทัล (DI)</h2><span class="muted" style="font-size:12.5px">DI1…DI${CFG().di} · แตะ 2 ครั้งเพื่อสลับ</span></div><div class="bd"><div id="dis"></div></div></section>
-    <section class="card iob"><div class="hd"><h2>อินพุตอนาล็อก (AI)</h2><span class="muted" style="font-size:12.5px">AI1 ขั้ว 2 · AI2 ขั้ว 5</span></div><div class="bd">
+  $("#simio").innerHTML = `<section class="card iob"><div class="hd"><h2>อินพุตดิจิทัล (DI)</h2><span class="muted" style="font-size:12.5px">${diRange()} · แตะ 2 ครั้งเพื่อสลับ</span></div><div class="bd"><div id="dis"></div></div></section>
+    <section class="card iob"><div class="hd"><h2>อินพุตอนาล็อก (AI)</h2><span class="muted" style="font-size:12.5px">${CFG().aiTerm || "AI1 ขั้ว 2 · AI2 ขั้ว 5"}</span></div><div class="bd">
       ${[0, 1].map(i => `<div class="aiw"><div class="aitop"><b>AI${i + 1}</b><span id="aiv${i}"></span><input class="input aiin" id="ain${i}" inputmode="decimal" aria-label="AI${i + 1} value"></div><input type="range" id="ai${i}" min="0" max="20" step="0.1" value="${SIM.ai[i]}">
         <div class="aibtns"><button class="btn aib" type="button" data-aistep="${i}:-1" aria-label="ลด AI${i + 1}">−</button><button class="btn aib" type="button" data-aistep="${i}:1" aria-label="เพิ่ม AI${i + 1}">+</button></div>
         <div class="aipre">${[0, 25, 50, 75, 100].map(p => `<button class="chip" type="button" data-aipct="${i}:${p}">${p}%</button>`).join("")}</div>
         <div class="aisc" id="ais${i}"></div></div>`).join("")}</div></section>
-    <section class="card iob"><div class="hd"><h2>เอาต์พุต</h2><span class="muted" style="font-size:12.5px">รีเลย์ ${CFG().ro.length} · อนาล็อก ${CFG().ao.length}</span></div><div class="bd" id="ros"></div></section>
+    <section class="card iob"><div class="hd"><h2>เอาต์พุต</h2><span class="muted" style="font-size:12.5px">รีเลย์ ${CFG().ro.length}${CFG().do ? " · ดิจิทัล " + CFG().do.length : ""} · อนาล็อก ${CFG().ao.length}</span></div><div class="bd" id="ros"></div></section>
     <section class="card iob"><div class="hd"><h2>STO / ทดสอบ Fault</h2></div><div class="bd" style="display:grid;gap:10px">
-      <label class="sw"><input type="checkbox" id="sto" ${SIM.sto ? "checked" : ""}> <span>วงจร STO ปิด – ปกติ (X4 ขั้ว 34–38)</span></label>
+      <label class="sw"><input type="checkbox" id="sto" ${SIM.sto ? "checked" : ""}> <span>วงจร STO ปิด – ปกติ (${CFG().stoTerm || "X4 ขั้ว 34–38"})</span></label>
       <div class="row"><select class="input" id="fsel" aria-label="Fault">${["2310", "3210", "3220", "2330", "4310", "7081"].map(c => `<option value="${c}">${c} ${esc(faultName(c))}</option>`).join("")}</select><button class="btn" type="button" id="fgo">สั่ง Trip</button></div>
       <div><button class="btn" type="button" id="simreset">รีเซ็ตจอจำลอง (ค่าโรงงาน)</button></div></div></section>
     <section class="card iob"><div class="hd"><h2>สถานะ</h2></div><div class="bd sst" id="sst"></div></section>`;
@@ -216,7 +216,7 @@ function buildIO() {
   let armed = false;
   $("#simreset").addEventListener("click", e => {
     if (!armed) { armed = true; e.target.textContent = "กดอีกครั้งเพื่อยืนยัน"; setTimeout(() => { armed = false; if (e.target.isConnected) e.target.textContent = "รีเซ็ตจอจำลอง (ค่าโรงงาน)"; }, 3000); return; }
-    restoreDefaults(); Object.assign(SIM, { di: Array(CFG().di).fill(false), ai: [0, 4], sto: true, local: false, panelRun: false, f: 0, fault: null, latch: false, pidI: 0, sleep: false, log: [] }); resetHome(); STK = [{ t: "home" }]; buildIO(); drawSim();
+    restoreDefaults(); Object.assign(SIM, { di: diStart(SM), ai: [0, 4], sto: true, local: false, panelRun: false, f: 0, fault: null, latch: false, pidI: 0, sleep: false, log: [] }); resetHome(); STK = [{ t: "home" }]; buildIO(); drawSim();
   });
 }
 // control location text at the top left: ACH-AP-H shows Off / Hand / Auto, the ACS-AP shows Local / Remote
@@ -236,11 +236,12 @@ function drawSim() {
   const tb = $("#typebox"), s = top_(), tm = s.t === "edit" ? simMeta(s.p) : null; tb.hidden = !(tm && (tm.t === "num" || tm.t === "time") && !(SIM.fault && !SIM.faultHidden));
   if (!tb.hidden) { $("#typev").placeholder = `${s.p === "REF" ? "Reference" : s.p} – ${tm.t === "time" ? tm.fmt : tm.unit || "value"}`; $("#typev").inputMode = tm.t === "time" ? "text" : "decimal"; }
   setText($("#refu"), c.u);
-  if ($("#dis")) setHTML($("#dis"), SIM.di.map((v, i) => { const u = diUsers(i), arm = diArmed(i); return `<button type="button" class="dibtn ${v ? "on" : ""}${arm ? " arm" : ""}" data-di="${i}"><span class="dot"></span><b>DI${i + 1}</b><em>${v ? "1" : "0"}</em><span class="du">${arm ? "แตะอีกครั้งเพื่อสลับ" : esc(u.join(" · ") || "Not used")}</span></button>`; }).join(""));
+  if ($("#dis")) setHTML($("#dis"), SIM.di.map((v, i) => { const u = diUsers(i), arm = diArmed(i), off = diOff(i); return `<button type="button" class="dibtn ${v && !off ? "on" : ""}${arm ? " arm" : ""}${off ? " off" : ""}" data-di="${i}"><span class="dot"></span><b>${diName(i)}</b><em>${v && !off ? "1" : "0"}</em><span class="du">${arm ? "แตะอีกครั้งเพื่อสลับ" : off ? `ขั้วนี้ใช้เป็น ${esc(nameOfOpt("11.21"))} (11.21)` : esc(u.join(" · ") || "Not used")}</span></button>`; }).join(""));
   if ($("#ai0")) [0, 1].forEach(i => { const u = aiUnit(i), sl = $("#ai" + i); sl.max = u === "V" ? 10 : 20; if (document.activeElement !== sl && +sl.value !== SIM.ai[i]) sl.value = SIM.ai[i]; setText($("#aiv" + i), SIM.ai[i].toFixed(2) + " " + u); $("#ain" + i).placeholder = "พิมพ์ค่า " + u; setText($("#ais" + i), `ค่าหลังสเกล ${aiScaled(i).toFixed(2)}  (${i ? "12.29…12.30" : "12.19…12.20"})`); });
   if ($("#ros")) setHTML($("#ros"), CFG().ro.map((n, i) => { const on = roState(V(n)); return `<div class="ro ${on ? "on" : ""}"><span class="lamp"></span><b>RO${i + 1}</b><span>${n} ${esc(fmtV(n))}</span><em>${on ? "Energized" : "–"}</em></div>`; }).join("") +
+    (CFG().do || []).map((n, i) => { const on = roState(V(n)); return `<div class="ro ${on ? "on" : ""}"><span class="lamp"></span><b>DO${i + 1}</b><span>${n} ${esc(fmtV(n))}</span><em>${on ? "On" : "–"}</em></div>`; }).join("") +
     CFG().ao.map((n, i) => `<div class="ro"><span class="lamp ao"></span><b>AO${i + 1}</b><span>${n} ${esc(fmtV(n))}</span><em>${aoValue(i)}</em></div>`).join(""));
-  setHTML($("#sst"), `<div><b>${SIM.fault ? "Faulted " + SIM.fault : SIM.jogRun ? "Jogging " + SIM.jog : SIM.run ? "Running" : SIM.sleep ? "PID sleep" : "Stopped"}</b> · ${CFG().hoa ? locText() : SIM.local ? "Local" : "Remote"}${SIM.local ? "" : " " + (srcB(V("19.11")) ? "EXT2" : "EXT1")} · ${SIM.f.toFixed(2)} Hz</div>
+  setHTML($("#sst"), `<div><b>${SIM.fault ? "Faulted " + SIM.fault : SIM.jogRun ? "Jogging " + SIM.jog : SIM.run ? "Running" : SIM.sleep ? "PID sleep" : "Stopped"}</b> · ${CFG().hoa ? locText() : SIM.local ? "Local" : "Remote"}${SIM.local ? "" : " " + (src("19.11") ? "EXT2" : "EXT1")} · ${SIM.f.toFixed(2)} Hz</div>
     <div>Start/stop: ${esc(cmdInfo)}</div><div>Reference: ${esc(refInfo)} → ${refUsed.toFixed(2)} Hz</div>
     ${V("40.07") ? `<div>Process PID: setpoint ${(SIM.pidSp || 0).toFixed(2)} · feedback ${(SIM.pidFb || 0).toFixed(2)} · output 40.01 = ${SIM.pid.toFixed(2)} ${chain().u}${SIM.sleep ? " · sleep" : ""}</div>` : ""}
     ${SIM.pfcOn ? `<div>PFC: ${SIM.run ? 1 + SIM.pfcAux : 0} motor(s) running – PFC1${SIM.pfcAux ? "…PFC" + (1 + SIM.pfcAux) : ""}</div>` : ""}
@@ -248,12 +249,40 @@ function drawSim() {
     ${SIM.inhibit.length ? `<div class="sw-i">Start inhibited: ${SIM.inhibit.map(esc).join(" · ")}</div>` : ""}`);
   setText($("#simlog"), SIM.log.join("\n") || "No events");
 }
-let holdT = null;
+// Holding Up/Down repeats like the real panel: a short wait, then a steady rate that speeds up.
+// The number of steps follows the time held (not a timer per step), so a busy phone keeps the same
+// speed instead of stuttering; the screen is drawn once per frame.
+const HOLD = { wait: 350, slow: 8, fast: 14, fastAfter: 1200, maxPerFrame: 3 };
+let hold = null;
+function holdSteps(ms) {   // steps due after holding for ms
+  const t = ms - HOLD.wait; if (t <= 0) return 0;
+  return t < HOLD.fastAfter ? Math.floor(t * HOLD.slow / 1000) : Math.floor(HOLD.fastAfter * HOLD.slow / 1000 + (t - HOLD.fastAfter) * HOLD.fast / 1000);
+}
+function holdFrame(now) {
+  if (!hold) return;
+  const due = holdSteps(now - hold.t0); let n = 0;
+  while (hold.done < due && n < HOLD.maxPerFrame) {
+    const s = top_(), i0 = s.i;
+    holdN++; press(hold.k); hold.done++; n++;
+    // at the end of a list a held key stops instead of flying round to the other end (a new press wraps)
+    if (top_() === s && typeof i0 === "number" && Math.abs(s.i - i0) > 2) { s.i = i0; drawSim(); holdStop(); return; }
+  }
+  if (n) drawSim();
+  hold.raf = requestAnimationFrame(holdFrame);
+}
+function holdStop() { if (hold) cancelAnimationFrame(hold.raf); hold = null; holdN = 0; }
 document.addEventListener("pointerdown", e => {
   const b = e.target.closest("[data-k]");
-  if (b) { e.preventDefault(); holdN = 0; press(b.dataset.k); drawSim(); clearInterval(holdT); if (["up", "down"].includes(b.dataset.k)) { const k = b.dataset.k; let n = 0; holdT = setInterval(() => { if (++n > 4) { holdN++; press(k); drawSim(); } }, 90); } return; }
+  if (!b) return;
+  e.preventDefault(); holdStop(); holdN = 0; press(b.dataset.k); drawSim();
+  if (["up", "down"].includes(b.dataset.k)) {
+    hold = { k: b.dataset.k, t0: performance.now(), done: 0 }; hold.raf = requestAnimationFrame(holdFrame);
+    b.addEventListener("pointerleave", holdStop, { once: true });   // finger slid off the key
+  }
 });
-["pointerup", "pointercancel", "blur"].forEach(ev => (ev === "blur" ? window : document).addEventListener(ev, () => { clearInterval(holdT); holdN = 0; }));
+["pointerup", "pointercancel"].forEach(ev => document.addEventListener(ev, holdStop));
+window.addEventListener("blur", holdStop);
+document.addEventListener("visibilitychange", () => { if (document.hidden) holdStop(); });
 document.addEventListener("click", e => { const g = e.target.closest("[data-simgo]"); if (g) { closeDrawer(); if (!SIM_MODELS.includes(S.model)) { S.model = "ACS580"; store.set("model", S.model); } if (S.model !== SM) useSimModel(S.model); gotoParam(g.dataset.simgo); setTab("sim"); } });
 document.addEventListener("keydown", e => {
   if (S.tab !== "sim" || S.model !== SM || /input|select|textarea/i.test(document.activeElement.tagName)) return;
@@ -269,7 +298,7 @@ const diArmed = i => diArm.i === i && Date.now() - diArm.t < 1500;
 document.addEventListener("click", e => {
   const d = e.target.closest("[data-di]"); if (!d) return;
   const i = +d.dataset.di;
-  if (diArmed(i)) { diArm = { i: -1, t: 0 }; SIM.di[i] = !SIM.di[i]; simLog(`DI${i + 1} = ${SIM.di[i] ? 1 : 0}`); }
+  if (diArmed(i)) { diArm = { i: -1, t: 0 }; SIM.di[i] = !SIM.di[i]; simLog(`${diName(i)} = ${SIM.di[i] ? 1 : 0}`); }
   else diArm = { i, t: Date.now() };
   drawSim();
 });

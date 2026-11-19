@@ -36,6 +36,11 @@ const gKey = n => (n.includes(".") ? n.split(".")[0] : n.slice(0, 2)).replace(/^
 function groupName(m, n) { const k = gKey(n), g = D[m].groups[k]; return g ? (n.includes(".") ? k.padStart(2, "0") + " " + g : "Group " + k.padStart(2, "0") + ": " + g) : ""; }
 // ABB's manual on the ABB library, opened at the page (page numbers refer to the revision named)
 function manualUrl(m, page) { const d = D[m].doc; return `https://search.abb.com/library/Download.aspx?DocumentID=${d.id}&LanguageCode=en&DocumentPartId=&Action=Launch${page ? "#page=" + page : ""}`; }
+// which manual (document number + revision) the data of a model comes from: the drive in the field may run other firmware
+function docLine(m) {
+  const d = D[m].doc;
+  return `<div class="docline">ข้อมูลอ้างอิง: <a href="${manualUrl(m, 0)}" target="_blank" rel="noopener">${esc(d.title)} ${esc(d.id)}${d.rev ? " Rev " + esc(d.rev) : ""} ↗</a> · เฟิร์มแวร์ในเครื่องจริงอาจต่างรุ่น ชื่อ/ค่าโรงงานบางตัวอาจไม่ตรง</div>`;
+}
 function pdfLink(m, page) {
   if (!page) return "";
   const d = D[m].doc;

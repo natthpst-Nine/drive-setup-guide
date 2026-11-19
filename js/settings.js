@@ -110,7 +110,7 @@ function jobTiles() {
 }
 function jobsHtml() {
   return `<section class="card"><div class="hd"><h2>ตั้งค่าไดร์ฟ – ${esc(S.model)}</h2><span class="muted" style="font-size:13px">เลือกงานที่ลูกค้าต้องการ แล้วบอกลูกค้าทีละขั้น</span></div>
-    <div class="bd fgw"><input class="input" id="ffilter" type="search" placeholder="ลูกค้าต้องการอะไร? เช่น PID, ปั๊ม, 4-20, Modbus, ไม่สตาร์ท" value="${esc(S.ffilter)}" aria-label="ค้นหางาน"><div id="fgrid">${jobTiles()}</div>
+    ${docLine(S.model)}<div class="bd fgw"><input class="input" id="ffilter" type="search" placeholder="ลูกค้าต้องการอะไร? เช่น PID, ปั๊ม, 4-20, Modbus, ไม่สตาร์ท" value="${esc(S.ffilter)}" aria-label="ค้นหางาน"><div id="fgrid">${jobTiles()}</div>
       <button type="button" class="plink" data-tab="param"><b>รายการพารามิเตอร์ทั้งหมด</b><span>${D[S.model].P.length} ตัวของ ${esc(S.model)} · ค้นหาตามเลข ชื่อ หรือกลุ่ม</span><i aria-hidden="true">›</i></button></div></section>`;
 }
 

@@ -16,7 +16,7 @@ function renderFault() {
     <aside class="card side ${f ? "hide-m" : ""}"><div class="filters"><input class="input" id="fq" type="search" placeholder="รหัสหรือชื่อ เช่น 2310" value="${esc(S.fq)}" aria-label="Search code">
       <div class="seg">${[["all", "ทั้งหมด"], ["F", "Fault"], ["W", ["o", "a"].includes(fam(m)) ? "Alarm" : "Warning"]].map(([k, l]) => `<button type="button" data-fk="${k}" aria-pressed="${S.fk === k}">${l}</button>`).join("")}</div></div>
       <div class="list" id="flist">${faultListHtml()}</div></aside>
-    <section class="card ${f ? "" : "hide-m"}">${f ? faultView(f) : `<div class="hd"><h2>ค้นหา Fault – ${m}</h2></div><div class="bd"><p class="muted" style="margin:0">พิมพ์โค้ดที่ขึ้นบนจอไดร์ฟ · คำแนะนำภาษาไทยเรียบเรียงโดย TG Control · สาเหตุและวิธีแก้ฉบับเต็มอยู่ในคู่มือ ${m} ของ ABB หัวข้อ Fault tracing</p></div>`}</section></div>`;
+    <section class="card ${f ? "" : "hide-m"}">${f ? faultView(f) : `<div class="hd"><h2>ค้นหา Fault – ${m}</h2></div>${docLine(m)}<div class="bd"><p class="muted" style="margin:0">พิมพ์โค้ดที่ขึ้นบนจอไดร์ฟ · คำแนะนำภาษาไทยเรียบเรียงโดย TG Control · สาเหตุและวิธีแก้ฉบับเต็มอยู่ในคู่มือ ${m} ของ ABB หัวข้อ Fault tracing</p></div>`}</section></div>`;
   const inp = $("#fq"); inp.addEventListener("input", () => { S.fq = inp.value; $("#flist").innerHTML = faultListHtml(); });
 }
 function faultView(f) {

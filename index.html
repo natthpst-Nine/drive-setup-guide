@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Roboto+Condensed:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="css/app.css?v=2026.11.13.1">
+<link rel="stylesheet" href="css/app.css?v=2026.11.19.7">
 </head>
 <body>
 <div class="top">
@@ -33,7 +33,7 @@
 <div id="drawer-root"></div>
 <script>
 // one version for every file: change it on each release so phones fetch the new files (sw.js keeps the same number)
-const APP_VERSION = "2026.11.13.1";
+const APP_VERSION = "2026.11.19.7";
 const DSG = {};
 // a script error while the page is still loading shows on screen instead of an endless "loading"
 window.addEventListener("error", e => {
@@ -100,9 +100,17 @@ async function unlockKeys() {
     return lockScreen(lock, saved ? "รหัสผ่านถูกเปลี่ยนแล้ว – ใส่รหัสใหม่" : "");
   } catch (e) { return lockScreen(lock, ""); }
 }
+// a browser without Web Crypto / DecompressionStream (iOS older than 16.4, very old Chrome): say how to update
+function oldBrowser() {
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent), android = /Android/.test(navigator.userAgent);
+  const how = ios ? "<li>เปิด <b>การตั้งค่า → ทั่วไป → รายการอัปเดตซอฟต์แวร์</b> แล้วอัปเดต iOS (ต้อง 16.4 ขึ้นไป)</li><li>เปิดลิงก์นี้ใหม่ใน <b>Safari</b></li>"
+    : android ? "<li>เปิด <b>Play Store</b> ค้นหา <b>Chrome</b> แล้วกด <b>อัปเดต</b></li><li>เปิดลิงก์นี้ใหม่ใน <b>Chrome</b></li>"
+    : "<li>อัปเดตเบราว์เซอร์เป็นเวอร์ชันล่าสุด (Chrome, Edge, Safari หรือ Firefox)</li><li>เปิดลิงก์นี้ใหม่</li>";
+  document.getElementById("main").innerHTML = `<div class="card lockcard"><h2>เบราว์เซอร์เก่าเกินไป</h2><p class="muted">เว็บนี้ใช้การเข้ารหัสข้อมูลที่เบราว์เซอร์รุ่นเก่ายังไม่รองรับ</p><ol class="oldhow">${how}</ol></div>`;
+}
 function lockApp() { try { localStorage.removeItem(KEYSTORE); } catch (e) {} location.reload(); }
 (async () => {
-  const JS = ["core", "settings", "faults", "params", "xref", "simulator", "panel-ip", "main"].map(f => `js/${f}.js?v=${APP_VERSION}`);
+  const JS = ["core", "settings", "faults", "params", "xref", "drives", "simulator", "panel-ip", "main"].map(f => `js/${f}.js?v=${APP_VERSION}`);
   // scripts download while the password is checked; they run (in this order) once the data is open
   for (const u of JS) { const l = document.createElement("link"); l.rel = "preload"; l.as = "script"; l.href = u; document.head.appendChild(l); }
   const load = u => new Promise((ok, no) => {
@@ -111,7 +119,7 @@ function lockApp() { try { localStorage.removeItem(KEYSTORE); } catch (e) {} loc
     document.body.appendChild(s);
   });
   try {
-    if (!window.crypto || !crypto.subtle || !window.DecompressionStream) throw new Error("เบราว์เซอร์นี้เก่าเกินไป – อัปเดต Chrome / Safari แล้วลองใหม่");
+    if (!window.crypto || !crypto.subtle || !window.DecompressionStream) { oldBrowser(); return; }
     const keys = await unlockKeys();
     const [params, recipes, extra, sim] = await Promise.all(["params", "recipes", "extra", "sim"].map(n => openFile(n, keys)));
     Object.assign(DSG, { params, recipes, extra, sim });

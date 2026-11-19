@@ -672,3 +672,8 @@ body.locked .search, body.locked .model, body.locked .tabs, body.locked .bnav, b
   .aipre { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
   .aipre .chip { justify-content: center; padding: 6px 0; min-height: 36px; font-size: 13px; }
 }
+
+/* source manual of the data shown */
+.docline { font-size: 12.5px; color: var(--muted); padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--soft); }
+.docline a { overflow-wrap: anywhere; }
+.oldhow { text-align: left; margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14.5px; }
