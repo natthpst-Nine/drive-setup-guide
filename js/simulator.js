@@ -276,6 +276,13 @@ const top_ = () => STK[STK.length - 1];
 const GROUPS = () => Object.entries(D[SM].groups).sort((a, b) => +a[0] - +b[0]);
 const pInGroup = g => SIMROWS.filter(r => gKey(r[0]) === g);
 const ROWS = 7;
+// first visible line of a list, as on the real panel: the selection bar walks to the top or bottom line first,
+// then the list scrolls one line at a time under it (the window is kept in s.top between key presses)
+function winTop(s, i, len, rows) {
+  let t = s.top == null ? i - Math.floor((rows - 1) / 2) : s.top;
+  if (i < t) t = i; else if (i > t + rows - 1) t = i - rows + 1;
+  t = Math.max(0, Math.min(t, len - rows)); s.top = t; return t;
+}
 const PRIMARY = [
   ["Macro:", ["96.04"]], ["Motor", ["99.04", "99.06", "99.07", "99.08", "99.09", "99.10", "99.13"]],
   ["Start, stop, reference", ["28.11", "20.01", "20.03", "20.04", "19.11", "28.21", "28.22", "28.23", "28.26", "28.27", "28.28"]],
@@ -291,7 +298,7 @@ const MAINMENU = ["Primary settings", "I/O", "Diagnostics", "System info", "Ener
 function listScr(title, items, s, l, r) {
   if (!items.length) return { title, body: `<div class="lhelp">No parameters</div>`, l, r: "" };
   s.i = Math.max(0, Math.min(items.length - 1, s.i || 0));
-  const st = Math.max(0, Math.min(s.i - 3, items.length - ROWS)), vis = items.slice(st, st + ROWS);
+  const st = winTop(s, s.i, items.length, ROWS), vis = items.slice(st, st + ROWS);
   const sb = items.length > ROWS ? `<div class="lsb"><i style="top:${st / items.length * 100}%;height:${ROWS / items.length * 100}%"></i></div>` : "";
   return { title, body: `<div class="ll">${vis.map((it, k) => `<div class="lr ${st + k === s.i ? "sel" : ""}"><span>${esc(it.label)}</span>${it.value != null && it.value !== "" ? `<em>${esc(it.value)}</em>` : ""}${it.arrow ? "<em>▸</em>" : ""}</div>`).join("")}</div>${sb}`, l, r };
 }
@@ -313,14 +320,14 @@ function editScr(s) {
   const title = n === "REF" ? "Reference" : n + " " + nameOf(n);
   if (m.t === "opt") {
     s.i = Math.max(0, Math.min(m.opts.length - 1, s.i));
-    const rows = ROWS - 1, st = Math.max(0, Math.min(s.i - 2, m.opts.length - rows));
+    const rows = ROWS - 1, st = winTop(s, s.i, m.opts.length, rows);
     return { title, body: `<div class="ll">${m.opts.slice(st, st + rows).map((o, k) => `<div class="lr ${st + k === s.i ? "sel" : ""}"><span>${esc(o[1])}</span>${o[0] === V(n) ? "<em>◉</em>" : ""}</div>`).join("")}</div>`, l: "Cancel", r: "Save" };
   }
   if (m.t === "num") return { title, body: `<div class="enum">${numHtml(s, m)}<small>${esc(m.unit || "")}</small></div><div class="lsmall">${m.min != null ? `Min ${m.min}  Max ${m.max}` : ""}</div>`, l: "Cancel", r: "Save", num: true };
   if (m.t === "bits") {
     const bits = m.bits.length ? m.bits : [...Array(16)].map((_, k) => [k, "Bit " + k]);
     s.i = Math.max(0, Math.min(bits.length - 1, s.i));
-    const rows = ROWS - 1, st = Math.max(0, Math.min(s.i - 2, bits.length - rows));
+    const rows = ROWS - 1, st = winTop(s, s.i, bits.length, rows);
     return { title, body: `<div class="ll">${bits.slice(st, st + rows).map((b, k) => `<div class="lr ${st + k === s.i ? "sel" : ""}"><span>${(s.buf >> b[0]) & 1 ? "☑" : "☐"} ${b[0]} ${esc(b[1])}</span></div>`).join("")}</div>`, l: "Cancel", r: "Save" };
   }
   if (m.t === "time") return { title, body: `<div class="enum">${s.buf.split("").map((ch, k) => `<span class="${k === s.cur ? "cur" : ""}">${ch === " " ? "&nbsp;" : esc(ch)}</span>`).join("")}</div><div class="lsmall">${esc(m.fmt)}</div>`, l: "Cancel", r: "Save", num: true };

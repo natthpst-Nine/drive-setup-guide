@@ -75,24 +75,24 @@ function screenIP() {
       <div class="iplab">${esc(it[s.i].label)}</div>${fl}`;
   }
   if (s.t === "ipmenu") {
-    const st = Math.max(0, Math.min(s.i - 1, IP_MAIN.length - 3));
+    const st = winTop(s, s.i, IP_MAIN.length, 3);
     return `<div class="ipmenu">${IP_MAIN.slice(st, st + 3).map(([k, l], j) => `<div class="ipr ${st + j === s.i ? "sel" : ""}">${ipIcon(k)}<span>${l}</span></div>`).join("")}</div>${fl}`;
   }
   if (s.t === "ipgrid") {
     const items = s.items(); s.i = Math.max(0, Math.min(items.length - 1, s.i));
     if (!items.length) return `<div class="iplist"><div class="iph">${esc(s.title || "")}</div><div class="iptext">–</div></div>${fl}`;
-    const rowsVis = 3, row = Math.floor(s.i / 2), st = Math.max(0, Math.min(row - 1, Math.ceil(items.length / 2) - rowsVis)) * 2;
+    const rowsVis = 3, st = winTop(s, Math.floor(s.i / 2), Math.ceil(items.length / 2), rowsVis) * 2;
     return `<div class="ipgrid">${items.slice(st, st + rowsVis * 2).map((it, j) => `<div class="ipc ${st + j === s.i ? "sel" : ""}">${esc(it.value)}</div>`).join("")}</div><div class="iplab">${esc(items[s.i].label)}</div>${fl}`;
   }
   if (s.t === "list" || s.t === "menu") {
     const items = s.items(); s.i = Math.max(0, Math.min(items.length - 1, s.i));
     if (!items.length) return `<div class="iplist"><div class="iph">${esc(s.title || "")}</div><div class="iptext">No parameters</div></div>${fl}`;
-    const st = Math.max(0, Math.min(s.i - 1, items.length - 3));
+    const st = winTop(s, s.i, items.length, 3);
     return `<div class="iplist"><div class="iph">${esc(s.title || "")}</div>${items.slice(st, st + 3).map((it, j) => `<div class="ipr ${st + j === s.i ? "sel" : ""}"><span>${esc(it.label)}</span>${it.value != null && it.value !== "" ? `<em>${esc(it.value)}</em>` : ""}</div>`).join("")}</div>${fl}`;
   }
   if (s.t === "edit") {
     const m = simMeta(s.p), title = s.p === "REF" ? "Reference" : s.p;
-    if (m.t === "opt") { const st = Math.max(0, Math.min(s.i - 1, m.opts.length - 3)); return `<div class="iplist"><div class="iph">${esc(title)}</div>${m.opts.slice(st, st + 3).map((o, j) => `<div class="ipr ${st + j === s.i ? "sel" : ""}"><span><b class="ipcode">${esc(o[0])} =</b> ${esc(o[1])}</span>${o[0] === V(s.p) ? "<em>◉</em>" : ""}</div>`).join("")}</div>${fl}`; }
+    if (m.t === "opt") { const st = winTop(s, s.i, m.opts.length, 3); return `<div class="iplist"><div class="iph">${esc(title)}</div>${m.opts.slice(st, st + 3).map((o, j) => `<div class="ipr ${st + j === s.i ? "sel" : ""}"><span><b class="ipcode">${esc(o[0])} =</b> ${esc(o[1])}</span>${o[0] === V(s.p) ? "<em>◉</em>" : ""}</div>`).join("")}</div>${fl}`; }
     if (m.t === "num") return `<div class="iplist"><div class="iph">${esc(title)}</div><div class="ipnum">${numHtml(s, m)}<small>${esc(m.unit || "")}</small></div></div>${fl}`;
     const scr = editScr(s);
     return `<div class="iplist"><div class="iph">${esc(title)}</div><div class="ipany">${scr.body}</div></div>${fl}`;
